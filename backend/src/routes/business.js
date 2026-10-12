@@ -62,6 +62,15 @@ r.post('/slides', requireRole('admin'), upload.array('images', MAX_SLIDES), (req
   res.status(201).json(listSlides(req.businessId));
 });
 
+/** Segundos entre imágenes del slider (2 a 30). */
+r.put('/slider-settings', requireRole('admin'), (req, res) => {
+  const seconds = Math.round(Number(req.body?.seconds));
+  if (!Number.isFinite(seconds) || seconds < 2 || seconds > 30)
+    return res.status(400).json({ error: 'El tiempo debe estar entre 2 y 30 segundos' });
+  db.prepare('UPDATE businesses SET slider_seconds = ? WHERE id = ?').run(seconds, req.businessId);
+  res.json({ seconds });
+});
+
 /** Cambia el texto o la posición de una imagen. Body: { caption?, move?: 'up' | 'down' } */
 r.put('/slides/:id', requireRole('admin'), (req, res) => {
   const slides = listSlides(req.businessId);

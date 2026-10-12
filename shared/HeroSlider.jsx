@@ -5,7 +5,7 @@ import './HeroSlider.css';
 
 /**
  * slides: [{ key, src, caption?, href? }]
- * interval: milisegundos entre imágenes
+ * interval: milisegundos entre imágenes (cambian solas, mínimo 2 s)
  * className: clases de la sección contenedora (ej. "hero")
  * overlay: degradado oscuro sobre la imagen para que el texto se lea bien
  */
@@ -19,11 +19,17 @@ export default function HeroSlider({ slides = [], interval = 6000, className = '
 
   useEffect(() => { if (index >= count) setIndex(0); }, [count, index]);
 
+  // Cambio automático: siempre activo; solo se detiene mientras la pestaña está oculta
+  // o mientras el usuario está tocando/arrastrando en el celular.
+  useEffect(() => {
+    const onVisibility = () => setPaused(document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   useEffect(() => {
     if (count < 2 || paused) return;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
-    const t = setTimeout(() => go(index + 1), interval);
+    const t = setTimeout(() => go(index + 1), Math.max(2000, interval));
     return () => clearTimeout(t);
   }, [index, count, paused, interval, go]);
 
@@ -34,10 +40,9 @@ export default function HeroSlider({ slides = [], interval = 6000, className = '
       id={id}
       className={`hs ${count ? 'hs-has-slides' : ''} ${className}`}
       style={style}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; setPaused(true); }}
       onTouchEnd={(e) => {
+        setPaused(false);
         if (touchX.current == null) return;
         const dx = e.changedTouches[0].clientX - touchX.current;
         if (Math.abs(dx) > 50) go(index + (dx < 0 ? 1 : -1));
@@ -54,6 +59,10 @@ export default function HeroSlider({ slides = [], interval = 6000, className = '
       )}
 
       <div className="hs-content">{children}</div>
+
+      {count > 1 && !paused && (
+        <div className="hs-progress" key={index} style={{ animationDuration: `${Math.max(2000, interval)}ms` }} aria-hidden="true" />
+      )}
 
       {current?.caption && (
         current.href

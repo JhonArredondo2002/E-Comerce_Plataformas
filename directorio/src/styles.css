@@ -104,6 +104,7 @@ img { max-width: 100%; }
 .tag.loc { background: var(--chip); color: var(--chip-text); }
 .tag.static { cursor: default; font-weight: 500; }
 .biz-desc { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.biz-match { font-size: 13px; margin: 0 0 10px; color: var(--chip-text); background: var(--grad-soft); padding: 6px 10px; border-radius: 8px; }
 .services { display: flex; flex-wrap: wrap; gap: 6px; }
 .service { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer; color: var(--chip-text); }
 .service.on, .service:hover { border-color: var(--primary); color: var(--primary); }

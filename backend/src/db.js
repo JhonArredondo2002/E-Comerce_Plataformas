@@ -150,6 +150,7 @@ function addColumnIfMissing(table, column, definition) {
   if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 addColumnIfMissing('businesses', 'neighborhood', "TEXT DEFAULT ''");
+addColumnIfMissing('businesses', 'slider_seconds', 'INTEGER NOT NULL DEFAULT 6');
 
 // Imágenes del slider del encabezado (hero) de la tienda pública
 db.exec(`

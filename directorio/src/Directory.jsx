@@ -137,6 +137,9 @@ export default function Directory() {
                     {b.neighborhood && <span className="tag loc static">{b.neighborhood}</span>}
                   </p>
                   {b.description && <p className="biz-desc">{b.description}</p>}
+                  {b.matched_products?.length > 0 && (
+                    <p className="biz-match">🔎 Tiene: {b.matched_products.join(', ')}</p>
+                  )}
                   {b.services.length > 0 && (
                     <div className="services">
                       {b.services.map((s) => (

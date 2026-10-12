@@ -40,5 +40,13 @@ a.hs-caption:hover { background: rgba(0, 0, 0, 0.6); }
   .hs-caption { bottom: 34px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hs-slide { transition: opacity 0.3s; transform: none; }
+  .hs-slide { transition: opacity 0.6s; transform: none; }
 }
+
+/* Barra de progreso hasta la siguiente imagen */
+.hs-progress {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; transform-origin: left;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.95));
+  animation: hs-progress linear forwards;
+}
+@keyframes hs-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }

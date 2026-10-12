@@ -97,7 +97,7 @@ function ProductForm({ product, categories, onClose, onSaved }) {
           <input list="product-categories" value={form.category} onChange={set('category')} />
           <datalist id="product-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
         </Field>
-        <Field label="SKU / Código"><input value={form.sku} onChange={set('sku')} /></Field>
+        <Field label="SKU / Código" hint="Opcional. Código interno o de barras para identificar el producto"><input value={form.sku} onChange={set('sku')} placeholder="Ej: CAF-500 o 7701234567890" /></Field>
         <Field label="Precio de venta"><input type="number" min="0" step="any" value={form.price} onChange={set('price')} /></Field>
         <Field label="Costo"><input type="number" min="0" step="any" value={form.cost} onChange={set('cost')} /></Field>
         {isNew ? (

@@ -32,6 +32,24 @@ export async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
+/** Descarga un archivo protegido (ej. Excel) usando el token de la sesión. */
+export async function apiDownload(path, filename) {
+  const res = await fetch(`${API_URL}/api${path}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** Construye un FormData a partir de un objeto, ignorando undefined. */
 export function toFormData(obj) {
   const fd = new FormData();

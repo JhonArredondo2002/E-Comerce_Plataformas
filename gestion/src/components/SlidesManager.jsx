@@ -5,11 +5,19 @@ import { ErrorMsg, useLoad } from './ui.jsx';
 const MAX = 10;
 
 /** Administra las imágenes del slider del encabezado de la tienda pública. */
-export default function SlidesManager({ canEdit }) {
+export default function SlidesManager({ canEdit, seconds: initialSeconds = 6 }) {
   const { data: slides, setData, error } = useLoad('/business/slides');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const inputRef = useRef(null);
+  const [seconds, setSeconds] = useState(initialSeconds || 6);
+
+  const saveSeconds = async (value) => {
+    const prev = seconds;
+    setSeconds(value); setMsg('');
+    try { await api('/business/slider-settings', { method: 'PUT', body: { seconds: value } }); }
+    catch (e) { setSeconds(prev); setMsg(e.message); }
+  };
 
   const run = async (fn) => {
     setBusy(true); setMsg('');
@@ -45,6 +53,13 @@ export default function SlidesManager({ canEdit }) {
             Recomendado: horizontales, mínimo 1600×900 px. Si no subes ninguna se usa la imagen de portada.
           </p>
         </div>
+        <div className="slides-tools">
+        <label className="inline slider-speed" title="Las imágenes cambian solas cada cierto tiempo">
+          Cambiar cada
+          <select value={seconds} onChange={(e) => saveSeconds(Number(e.target.value))} disabled={!canEdit}>
+            {[3, 4, 5, 6, 8, 10, 15, 20].map((n) => <option key={n} value={n}>{n} s</option>)}
+          </select>
+        </label>
         {canEdit && (
           <label className={`btn primary ${busy || full ? 'disabled' : ''}`}>
             {busy ? 'Subiendo…' : '+ Agregar imágenes'}
@@ -59,6 +74,7 @@ export default function SlidesManager({ canEdit }) {
             />
           </label>
         )}
+        </div>
       </div>
       <ErrorMsg>{error || msg}</ErrorMsg>
       {slides && !slides.length && <div className="empty small-empty">Aún no hay imágenes en el slider.</div>}

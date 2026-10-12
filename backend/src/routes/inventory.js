@@ -1,13 +1,26 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { toNum } from '../utils.js';
+import { sendXlsx } from '../xlsx.js';
 
 const r = Router();
 
-r.get('/movements', (req, res) => {
+const TYPE_LABEL = { entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', venta: 'Venta', anulacion: 'Anulación de venta' };
+
+/** Filtros comunes: product_id, type, from, to (fechas YYYY-MM-DD en hora local). */
+function movementsFilter(req) {
   const params = [req.businessId];
   let where = 'm.business_id = ?';
-  if (req.query.product_id) { where += ' AND m.product_id = ?'; params.push(req.query.product_id); }
+  const { product_id, type, from, to } = req.query;
+  if (product_id) { where += ' AND m.product_id = ?'; params.push(product_id); }
+  if (type && TYPE_LABEL[type]) { where += ' AND m.type = ?'; params.push(type); }
+  if (from) { where += " AND date(m.created_at, 'localtime') >= date(?)"; params.push(from); }
+  if (to) { where += " AND date(m.created_at, 'localtime') <= date(?)"; params.push(to); }
+  return { where, params };
+}
+
+r.get('/movements', (req, res) => {
+  const { where, params } = movementsFilter(req);
   const rows = db
     .prepare(
       `SELECT m.*, p.name AS product_name, u.name AS user_name
@@ -19,6 +32,73 @@ r.get('/movements', (req, res) => {
     )
     .all(...params);
   res.json(rows);
+});
+
+/** Descarga los movimientos (con los mismos filtros) y las existencias actuales en Excel. */
+r.get('/movements/export', (req, res) => {
+  const { where, params } = movementsFilter(req);
+  const movements = db
+    .prepare(
+      `SELECT datetime(m.created_at, 'localtime') AS fecha, p.name AS producto, p.sku, p.category AS categoria,
+              m.type, m.quantity AS cantidad, m.stock_after AS stock_final, m.reason AS motivo, u.name AS usuario
+         FROM inventory_movements m
+         JOIN products p ON p.id = m.product_id
+         LEFT JOIN users u ON u.id = m.user_id
+        WHERE ${where}
+        ORDER BY m.created_at DESC, m.id DESC`
+    )
+    .all(...params)
+    .map((m) => ({ ...m, tipo: TYPE_LABEL[m.type] || m.type }));
+
+  const stock = db
+    .prepare(
+      `SELECT name AS producto, sku, category AS categoria, stock, min_stock AS minimo, cost AS costo, price AS precio,
+              stock * cost AS valor_costo, stock * price AS valor_venta,
+              CASE WHEN stock <= min_stock THEN 'Stock bajo' ELSE 'OK' END AS estado
+         FROM products WHERE business_id = ? AND active = 1 ORDER BY name`
+    )
+    .all(req.businessId);
+
+  const biz = db.prepare('SELECT name FROM businesses WHERE id = ?').get(req.businessId);
+  const { from, to } = req.query;
+  const period = from || to ? ` (${from || 'inicio'} a ${to || 'hoy'})` : '';
+  const today = new Date().toISOString().slice(0, 10);
+
+  sendXlsx(res, `movimientos-inventario-${today}.xlsx`, [
+    {
+      name: 'Movimientos',
+      title: `${biz.name} · Movimientos de inventario${period}`,
+      columns: [
+        { header: 'Fecha', key: 'fecha', type: 'datetime', width: 18 },
+        { header: 'Producto', key: 'producto', width: 32 },
+        { header: 'SKU', key: 'sku', width: 14 },
+        { header: 'Categoría', key: 'categoria', width: 18 },
+        { header: 'Tipo', key: 'tipo', width: 18 },
+        { header: 'Cantidad', key: 'cantidad', type: 'integer', width: 11 },
+        { header: 'Stock final', key: 'stock_final', type: 'integer', width: 12 },
+        { header: 'Motivo', key: 'motivo', width: 34 },
+        { header: 'Usuario', key: 'usuario', width: 22 },
+      ],
+      rows: movements,
+    },
+    {
+      name: 'Existencias',
+      title: `${biz.name} · Existencias al ${today}`,
+      columns: [
+        { header: 'Producto', key: 'producto', width: 32 },
+        { header: 'SKU', key: 'sku', width: 14 },
+        { header: 'Categoría', key: 'categoria', width: 18 },
+        { header: 'Stock', key: 'stock', type: 'integer', width: 10 },
+        { header: 'Mínimo', key: 'minimo', type: 'integer', width: 10 },
+        { header: 'Costo unit.', key: 'costo', type: 'money', width: 14 },
+        { header: 'Precio unit.', key: 'precio', type: 'money', width: 14 },
+        { header: 'Valor a costo', key: 'valor_costo', type: 'money', width: 16 },
+        { header: 'Valor a precio', key: 'valor_venta', type: 'money', width: 16 },
+        { header: 'Estado', key: 'estado', width: 12 },
+      ],
+      rows: stock,
+    },
+  ]);
 });
 
 /**

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, dateTime, money } from '../api.js';
+import { api, apiDownload, dateTime, money } from '../api.js';
 import { Badge, Empty, ErrorMsg, Field, Modal, PageHeader, useLoad } from '../components/ui.jsx';
 
 const TYPE = {
@@ -14,14 +14,29 @@ export default function Inventory() {
   const [tab, setTab] = useState('stock');
   const [lowOnly, setLowOnly] = useState(false);
   const products = useLoad(`/products?active=1${lowOnly ? '&low=1' : ''}`, [lowOnly]);
-  const movements = useLoad('/inventory/movements');
+  const [filters, setFilters] = useState({ from: '', to: '', type: '', product_id: '' });
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
+  const movements = useLoad(`/inventory/movements?${qs}`, [qs]);
+  const allProducts = useLoad('/products');
   const [moving, setMoving] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const setFilter = (k) => (e) => setFilters({ ...filters, [k]: e.target.value });
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      await apiDownload(`/inventory/movements/export?${qs}`, `movimientos-inventario-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (e) { alert(e.message); } finally { setExporting(false); }
+  };
 
   const reloadAll = () => { products.reload(); movements.reload(); };
 
   return (
     <>
       <PageHeader title="Inventario" subtitle="Existencias y movimientos de tus productos">
+        <button className="btn secondary" onClick={exportExcel} disabled={exporting} title="Descarga los movimientos (con los filtros aplicados) y las existencias actuales">
+          {exporting ? 'Generando…' : '⬇ Exportar a Excel'}
+        </button>
         <button className="btn primary" onClick={() => setMoving({})}>+ Registrar movimiento</button>
       </PageHeader>
       <div className="tabs">
@@ -63,6 +78,19 @@ export default function Inventory() {
 
       {tab === 'mov' && (
         <>
+          <div className="toolbar filters-bar">
+            <label className="inline">Desde <input type="date" value={filters.from} onChange={setFilter('from')} /></label>
+            <label className="inline">Hasta <input type="date" value={filters.to} onChange={setFilter('to')} /></label>
+            <select value={filters.type} onChange={setFilter('type')} aria-label="Tipo de movimiento">
+              <option value="">Todos los tipos</option>
+              {Object.entries(TYPE).map(([k, [label]]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+            <select value={filters.product_id} onChange={setFilter('product_id')} aria-label="Producto">
+              <option value="">Todos los productos</option>
+              {allProducts.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            {qs && <button className="btn ghost small" onClick={() => setFilters({ from: '', to: '', type: '', product_id: '' })}>Limpiar</button>}
+          </div>
           <ErrorMsg>{movements.error}</ErrorMsg>
           {movements.data && !movements.data.length && <Empty>Sin movimientos.</Empty>}
           {movements.data?.length > 0 && (

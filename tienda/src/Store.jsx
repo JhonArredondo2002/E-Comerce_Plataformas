@@ -93,7 +93,7 @@ export default function Store() {
         </nav>
       </header>
 
-      <HeroSlider id="inicio" className="hero" slides={heroSlides}>
+      <HeroSlider id="inicio" className="hero" slides={heroSlides} interval={(biz.slider_seconds || 6) * 1000}>
         <div className="hero-inner">
           {biz.logo && <img className="hero-logo" src={img(biz.logo)} alt={biz.name} />}
           <h1>{biz.name}</h1>

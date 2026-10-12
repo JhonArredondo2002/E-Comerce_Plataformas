@@ -2,11 +2,12 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { getServices } from '../utils.js';
+import { fuzzySearch } from '../search.js';
 
 const r = Router();
 
 const PUBLIC_COLS = `b.id, b.name, b.slug, b.description, b.category, b.city, b.neighborhood, b.address, b.maps_url, b.latitude, b.longitude,
-  b.phone, b.whatsapp, b.email, b.facebook, b.instagram, b.tiktok, b.website, b.schedule, b.logo, b.cover, b.primary_color`;
+  b.phone, b.whatsapp, b.email, b.facebook, b.instagram, b.tiktok, b.website, b.schedule, b.logo, b.cover, b.primary_color, b.slider_seconds`;
 
 /** Directorio: lista de negocios activos con filtros por categoría, servicio, ciudad y texto. */
 r.get('/businesses', (req, res) => {
@@ -19,12 +20,6 @@ r.get('/businesses', (req, res) => {
     where.push('EXISTS (SELECT 1 FROM business_services s WHERE s.business_id = b.id AND s.name = ?)');
     params.push(service);
   }
-  if (q) {
-    where.push(`(b.name LIKE ? OR b.description LIKE ? OR b.category LIKE ? OR b.neighborhood LIKE ?
-      OR EXISTS (SELECT 1 FROM business_services s WHERE s.business_id = b.id AND s.name LIKE ?))`);
-    const like = `%${q}%`;
-    params.push(like, like, like, like, like);
-  }
   const rows = db
     .prepare(
       `SELECT ${PUBLIC_COLS},
@@ -32,7 +27,40 @@ r.get('/businesses', (req, res) => {
          FROM businesses b WHERE ${where.join(' AND ')} ORDER BY b.name`
     )
     .all(...params);
-  res.json(rows.map((b) => ({ ...b, services: getServices(b.id) })));
+  const list = rows.map((b) => ({ ...b, services: getServices(b.id) }));
+  if (!q || !String(q).trim()) return res.json(list);
+
+  // Búsqueda flexible (ver src/search.js): también mira los productos del catálogo
+  const productsBy = new Map();
+  if (list.length) {
+    const ids = list.map((b) => b.id);
+    db.prepare(
+      `SELECT business_id, name, category FROM products
+        WHERE active = 1 AND in_catalog = 1 AND business_id IN (${ids.map(() => '?').join(',')})`
+    )
+      .all(...ids)
+      .forEach((p) => {
+        const arr = productsBy.get(p.business_id) || [];
+        arr.push(p);
+        productsBy.set(p.business_id, arr);
+      });
+  }
+  const docs = list.map((b) => {
+    const prods = productsBy.get(b.id) || [];
+    return {
+      ...b,
+      _products: prods.map((p) => p.name),
+      _fields: {
+        name: b.name,
+        category: b.category,
+        services: b.services.join(' '),
+        products: prods.map((p) => `${p.name} ${p.category}`).join(' '),
+        location: `${b.city} ${b.neighborhood}`,
+        description: b.description,
+      },
+    };
+  });
+  res.json(fuzzySearch(String(q).slice(0, 100), docs).map(({ _fields, _products, ...b }) => b));
 });
 
 /** Opciones disponibles para los filtros del directorio. */

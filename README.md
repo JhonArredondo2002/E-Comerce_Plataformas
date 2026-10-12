@@ -52,8 +52,16 @@ Todo se configura en la carpeta **`shared/`** (la usan las 3 plataformas):
 
 ## Sliders
 
-- **Tienda:** en Gestión → *Mi negocio* → *Slider de la tienda*, el administrador sube hasta 10 imágenes, las ordena y les pone un texto opcional. Rotan de fondo en el encabezado de la tienda. Si no hay imágenes, se usa la portada.
+- **Tienda:** en Gestión → *Mi negocio* → *Slider de la tienda*, el administrador sube hasta 10 imágenes, las ordena y les pone un texto opcional. Cambian solas en el encabezado de la tienda; el tiempo entre imágenes (3 a 20 s) se elige en esa misma sección. Si no hay imágenes, se usa la portada.
 - **Directorio:** el encabezado muestra de fondo negocios al azar (nombre, categoría y ciudad, con enlace a su tienda). Solo aparecen los negocios que tienen portada o imágenes de slider.
+
+## Búsqueda flexible del Directorio
+
+El buscador ignora tildes y mayúsculas, entiende plurales y palabras incompletas, tolera errores de tipeo ("pelukeria" → Peluquería), reconoce palabras relacionadas ("comida" → restaurantes, "celular" → tecnología) y también busca en los productos del catálogo. Los resultados se ordenan por relevancia. Para agregar palabras relacionadas edita `SYNONYM_GROUPS` en `backend/src/search.js`.
+
+## Exportar inventario a Excel
+
+En Gestión → *Inventario* → **Exportar a Excel** se descarga un `.xlsx` con dos hojas: *Movimientos* (con los filtros de fecha, tipo y producto aplicados) y *Existencias* (stock actual, costo y valor). No requiere librerías adicionales (`backend/src/xlsx.js`).
 
 ## Modo oscuro y diseño responsive
 

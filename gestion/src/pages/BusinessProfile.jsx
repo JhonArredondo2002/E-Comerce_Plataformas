@@ -42,7 +42,7 @@ export default function BusinessProfile() {
           </>
         )}
       </section>
-      <SlidesManager canEdit={isAdmin} />
+      <SlidesManager canEdit={isAdmin} seconds={data.slider_seconds} />
     </>
   );
 }
