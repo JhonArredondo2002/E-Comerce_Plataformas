@@ -1,0 +1,20 @@
+{
+  "name": "plataforma-negocios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sistema de 3 plataformas: Gestión, Tienda por negocio y Directorio de negocios",
+  "workspaces": [
+    "backend",
+    "gestion",
+    "tienda",
+    "directorio"
+  ],
+  "scripts": {
+    "seed": "npm run seed -w backend",
+    "dev": "concurrently -n api,gestion,tienda,directorio -c blue,green,magenta,yellow \"npm run dev -w backend\" \"npm run dev -w gestion\" \"npm run dev -w tienda\" \"npm run dev -w directorio\"",
+    "build": "npm run build -w gestion && npm run build -w tienda && npm run build -w directorio"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

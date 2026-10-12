@@ -1,0 +1,44 @@
+.hs { position: relative; overflow: hidden; isolation: isolate; }
+.hs-track { position: absolute; inset: 0; z-index: -1; }
+.hs-slide {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  opacity: 0; transform: scale(1.06); transition: opacity 1.2s ease, transform 7s ease-out;
+}
+.hs-slide.active { opacity: 1; transform: scale(1); }
+.hs-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.7) 100%);
+}
+.hs-content { position: relative; }
+
+.hs-caption {
+  position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); color: #fff; padding: 6px 14px; border-radius: 999px;
+  font-size: 13px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+a.hs-caption:hover { background: rgba(0, 0, 0, 0.6); }
+
+.hs-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.25); color: #fff; font-size: 26px; line-height: 1;
+  cursor: pointer; display: grid; place-items: center; opacity: 0; transition: opacity 0.2s, background 0.2s;
+}
+.hs:hover .hs-arrow, .hs-arrow:focus-visible { opacity: 1; }
+.hs-arrow:hover { background: rgba(0, 0, 0, 0.45); }
+.hs-arrow.prev { left: 14px; }
+.hs-arrow.next { right: 14px; }
+
+.hs-dots { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 8px; }
+.hs-dots button {
+  width: 8px; height: 8px; padding: 0; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(255, 255, 255, 0.5); transition: width 0.3s, background 0.3s;
+}
+.hs-dots button.active { width: 24px; background: #fff; }
+
+@media (max-width: 640px) {
+  .hs-arrow { display: none; }
+  .hs-caption { bottom: 34px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-slide { transition: opacity 0.3s; transform: none; }
+}
