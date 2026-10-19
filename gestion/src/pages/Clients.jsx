@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, dateTime, money } from '../api.js';
-import { Empty, ErrorMsg, Field, Modal, PageHeader, useLoad } from '../components/ui.jsx';
+import { Empty, ErrorMsg, ExportButton, Field, Modal, PageHeader, useLoad } from '../components/ui.jsx';
 
 const EMPTY = { name: '', document: '', phone: '', email: '', address: '', notes: '' };
 
@@ -20,6 +20,7 @@ export default function Clients() {
   return (
     <>
       <PageHeader title="Clientes" subtitle="Base de clientes de tu negocio">
+        <ExportButton path={`/clients/export?q=${encodeURIComponent(q)}`} filename="clientes" />
         <button className="btn primary" onClick={() => setEditing(EMPTY)}>+ Nuevo cliente</button>
       </PageHeader>
       <div className="toolbar">

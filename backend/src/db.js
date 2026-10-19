@@ -152,6 +152,29 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing('businesses', 'neighborhood', "TEXT DEFAULT ''");
 addColumnIfMissing('businesses', 'slider_seconds', 'INTEGER NOT NULL DEFAULT 6');
 
+// Proveedores de cada negocio
+db.exec(`
+CREATE TABLE IF NOT EXISTS suppliers (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  business_id  INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  document     TEXT DEFAULT '',
+  contact_name TEXT DEFAULT '',
+  phone        TEXT DEFAULT '',
+  email        TEXT DEFAULT '',
+  address      TEXT DEFAULT '',
+  supplies     TEXT DEFAULT '',
+  notes        TEXT DEFAULT '',
+  active       INTEGER NOT NULL DEFAULT 1,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_suppliers_business ON suppliers(business_id);
+`);
+// Proveedor habitual del producto y proveedor/costo de cada entrada de inventario (compras)
+addColumnIfMissing('products', 'supplier_id', 'INTEGER REFERENCES suppliers(id) ON DELETE SET NULL');
+addColumnIfMissing('inventory_movements', 'supplier_id', 'INTEGER REFERENCES suppliers(id) ON DELETE SET NULL');
+addColumnIfMissing('inventory_movements', 'unit_cost', 'REAL');
+
 // Imágenes del slider del encabezado (hero) de la tienda pública
 db.exec(`
 CREATE TABLE IF NOT EXISTS business_slides (

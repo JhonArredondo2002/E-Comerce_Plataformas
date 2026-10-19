@@ -59,9 +59,13 @@ Todo se configura en la carpeta **`shared/`** (la usan las 3 plataformas):
 
 El buscador ignora tildes y mayúsculas, entiende plurales y palabras incompletas, tolera errores de tipeo ("pelukeria" → Peluquería), reconoce palabras relacionadas ("comida" → restaurantes, "celular" → tecnología) y también busca en los productos del catálogo. Los resultados se ordenan por relevancia. Para agregar palabras relacionadas edita `SYNONYM_GROUPS` en `backend/src/search.js`.
 
+## Proveedores
+
+En Gestión → *Proveedores* se registran los proveedores del negocio (NIT, contacto, teléfono/WhatsApp, qué suministra y notas). Cada producto puede tener un proveedor habitual y, al registrar una **entrada** de inventario, se puede indicar el proveedor y el costo unitario de la compra (opcionalmente actualiza el costo del producto). En el detalle de cada proveedor se ven sus productos y el historial de compras.
+
 ## Exportar inventario a Excel
 
-En Gestión → *Inventario* → **Exportar a Excel** se descarga un `.xlsx` con dos hojas: *Movimientos* (con los filtros de fecha, tipo y producto aplicados) y *Existencias* (stock actual, costo y valor). No requiere librerías adicionales (`backend/src/xlsx.js`).
+Hay un botón **Exportar a Excel** en Ventas (resumen, detalle y ventas por producto), Clientes, Productos, Proveedores e Inventario; cada exportación respeta los filtros o la búsqueda que se tengan en pantalla e incluye una fila de totales. En *Inventario* se descarga un `.xlsx` con dos hojas: *Movimientos* (con los filtros de fecha, tipo y producto aplicados) y *Existencias* (stock actual, costo y valor). No requiere librerías adicionales (`backend/src/xlsx.js`).
 
 ## Modo oscuro y diseño responsive
 

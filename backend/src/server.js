@@ -16,6 +16,7 @@ import salesRoutes from './routes/sales.js';
 import adsRoutes from './routes/ads.js';
 import dashboardRoutes from './routes/dashboard.js';
 import publicRoutes from './routes/public.js';
+import suppliersRoutes from './routes/suppliers.js';
 
 const app = express();
 const origins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -39,6 +40,7 @@ const biz = [requireAuth, requireBusiness];
 app.use('/api/business', ...biz, businessRoutes);
 app.use('/api/users', ...biz, usersRoutes);
 app.use('/api/clients', ...biz, clientsRoutes);
+app.use('/api/suppliers', ...biz, suppliersRoutes);
 app.use('/api/products', ...biz, productsRoutes);
 app.use('/api/inventory', ...biz, inventoryRoutes);
 app.use('/api/sales', ...biz, salesRoutes);

@@ -1,15 +1,21 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { toNum } from '../utils.js';
+import { sendXlsx } from '../xlsx.js';
 
 const r = Router();
 
-r.get('/', (req, res) => {
+function salesFilter(req) {
   const params = [req.businessId];
   let where = 's.business_id = ?';
   if (req.query.from) { where += " AND date(s.created_at, 'localtime') >= date(?)"; params.push(req.query.from); }
   if (req.query.to) { where += " AND date(s.created_at, 'localtime') <= date(?)"; params.push(req.query.to); }
   if (req.query.status) { where += ' AND s.status = ?'; params.push(req.query.status); }
+  return { where, params };
+}
+
+r.get('/', (req, res) => {
+  const { where, params } = salesFilter(req);
   const rows = db
     .prepare(
       `SELECT s.*, c.name AS client_name, u.name AS user_name,
@@ -22,6 +28,97 @@ r.get('/', (req, res) => {
     )
     .all(...params);
   res.json(rows);
+});
+
+/**
+ * Exporta las ventas del periodo filtrado: hoja "Ventas" (una fila por venta),
+ * hoja "Detalle" (una fila por producto vendido) y hoja "Por producto" (resumen).
+ */
+r.get('/export', (req, res) => {
+  const { where, params } = salesFilter(req);
+  const sales = db
+    .prepare(
+      `SELECT s.id, datetime(s.created_at, 'localtime') AS fecha, COALESCE(c.name, 'Consumidor final') AS cliente,
+              c.document AS documento, u.name AS vendedor, s.payment_method AS pago, s.status AS estado, s.notes AS notas,
+              (SELECT SUM(i.quantity) FROM sale_items i WHERE i.sale_id = s.id) AS unidades,
+              CASE WHEN s.status = 'completada' THEN s.total ELSE 0 END AS total_valido, s.total
+         FROM sales s LEFT JOIN clients c ON c.id = s.client_id LEFT JOIN users u ON u.id = s.user_id
+        WHERE ${where} ORDER BY s.created_at DESC, s.id DESC`
+    )
+    .all(...params)
+    .map((v) => ({ ...v, estado: v.estado === 'completada' ? 'Completada' : 'Anulada' }));
+  const items = db
+    .prepare(
+      `SELECT s.id AS venta, datetime(s.created_at, 'localtime') AS fecha, i.product_name AS producto, p.sku, p.category AS categoria,
+              i.quantity AS cantidad, i.unit_price AS precio, i.subtotal, p.cost AS costo_actual,
+              CASE WHEN p.cost IS NOT NULL THEN i.subtotal - i.quantity * p.cost END AS utilidad, s.status AS estado
+         FROM sale_items i JOIN sales s ON s.id = i.sale_id LEFT JOIN products p ON p.id = i.product_id
+        WHERE ${where} ORDER BY s.created_at DESC, s.id DESC, i.id`
+    )
+    .all(...params)
+    .map((v) => ({ ...v, estado: v.estado === 'completada' ? 'Completada' : 'Anulada' }));
+  const byProduct = db
+    .prepare(
+      `SELECT i.product_name AS producto, SUM(i.quantity) AS unidades, SUM(i.subtotal) AS ventas, COUNT(DISTINCT s.id) AS num_ventas
+         FROM sale_items i JOIN sales s ON s.id = i.sale_id
+        WHERE ${where} AND s.status = 'completada'
+        GROUP BY i.product_name ORDER BY ventas DESC`
+    )
+    .all(...params);
+
+  const biz = db.prepare('SELECT name FROM businesses WHERE id = ?').get(req.businessId);
+  const { from, to } = req.query;
+  const period = from || to ? ` (${from || 'inicio'} a ${to || 'hoy'})` : '';
+  sendXlsx(res, `ventas-${new Date().toISOString().slice(0, 10)}.xlsx`, [
+    {
+      name: 'Ventas',
+      title: `${biz.name} · Ventas${period}`,
+      columns: [
+        { header: 'N.° venta', key: 'id', type: 'integer', width: 10 },
+        { header: 'Fecha', key: 'fecha', type: 'datetime', width: 18 },
+        { header: 'Cliente', key: 'cliente', width: 28 },
+        { header: 'Documento', key: 'documento', width: 15 },
+        { header: 'Vendedor', key: 'vendedor', width: 22 },
+        { header: 'Método de pago', key: 'pago', width: 15 },
+        { header: 'Unidades', key: 'unidades', type: 'integer', width: 10 },
+        { header: 'Total', key: 'total', type: 'money', width: 15 },
+        { header: 'Total válido (sin anuladas)', key: 'total_valido', type: 'money', width: 18 },
+        { header: 'Estado', key: 'estado', width: 12 },
+        { header: 'Notas', key: 'notas', width: 28 },
+      ],
+      rows: sales,
+      totals: ['unidades', 'total_valido'],
+    },
+    {
+      name: 'Detalle',
+      title: `${biz.name} · Detalle de productos vendidos${period}`,
+      columns: [
+        { header: 'N.° venta', key: 'venta', type: 'integer', width: 10 },
+        { header: 'Fecha', key: 'fecha', type: 'datetime', width: 18 },
+        { header: 'Producto', key: 'producto', width: 30 },
+        { header: 'SKU', key: 'sku', width: 14 },
+        { header: 'Categoría', key: 'categoria', width: 18 },
+        { header: 'Cantidad', key: 'cantidad', type: 'integer', width: 10 },
+        { header: 'Precio unitario', key: 'precio', type: 'money', width: 15 },
+        { header: 'Subtotal', key: 'subtotal', type: 'money', width: 15 },
+        { header: 'Utilidad estimada (costo actual)', key: 'utilidad', type: 'money', width: 20 },
+        { header: 'Estado de la venta', key: 'estado', width: 14 },
+      ],
+      rows: items,
+    },
+    {
+      name: 'Por producto',
+      title: `${biz.name} · Ventas por producto${period} (sin anuladas)`,
+      columns: [
+        { header: 'Producto', key: 'producto', width: 32 },
+        { header: 'Unidades vendidas', key: 'unidades', type: 'integer', width: 14 },
+        { header: 'Número de ventas', key: 'num_ventas', type: 'integer', width: 14 },
+        { header: 'Valor vendido', key: 'ventas', type: 'money', width: 16 },
+      ],
+      rows: byProduct,
+      totals: ['unidades', 'ventas'],
+    },
+  ]);
 });
 
 r.get('/:id', (req, res) => {

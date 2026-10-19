@@ -8,7 +8,8 @@
 //        columns: [{ header: 'Fecha', key: 'fecha', type: 'datetime', width: 20 }, ...],
 //        rows: [{ fecha: '2026-10-12 08:30:00', ... }] },
 //    ]);
-//  Tipos de columna: 'text' (por defecto), 'number', 'integer', 'money', 'datetime'
+//  Tipos de columna: 'text' (por defecto), 'number', 'integer', 'money', 'percent', 'datetime'
+//  Opcional por hoja: totals: ['clave', ...] agrega una fila «Total» con la SUMA de esas columnas.
 // ─────────────────────────────────────────────────────────────────────────────
 import zlib from 'node:zlib';
 
@@ -97,7 +98,7 @@ function excelDate(value) {
 }
 
 // Índices de estilo definidos en STYLES_XML (cellXfs)
-const STYLE = { text: 0, header: 1, datetime: 2, integer: 3, number: 4, money: 5, title: 6 };
+const STYLE = { text: 0, header: 1, datetime: 2, integer: 3, number: 4, money: 5, title: 6, total: 7, totalNum: 8, totalMoney: 9, percent: 10 };
 
 const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -106,22 +107,24 @@ const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <numFmt numFmtId="165" formatCode="#,##0"/>
 <numFmt numFmtId="166" formatCode="&quot;$&quot; #,##0"/>
 </numFmts>
-<fonts count="3">
+<fonts count="4">
 <font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
 <font><b/><sz val="14"/><color rgb="FF1E3A8A"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
 </fonts>
-<fills count="3">
+<fills count="4">
 <fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FF2563EB"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE8EFFF"/><bgColor indexed="64"/></patternFill></fill>
 </fills>
 <borders count="2">
 <border><left/><right/><top/><bottom/><diagonal/></border>
 <border><left/><right/><top/><bottom style="thin"><color rgb="FFE3E7EF"/></bottom><diagonal/></border>
 </borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="7">
+<cellXfs count="11">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
 <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
 <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
@@ -129,6 +132,10 @@ const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
 <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
 <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="165" fontId="3" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>
+<xf numFmtId="166" fontId="3" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>
+<xf numFmtId="10" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -139,13 +146,13 @@ function cell(ref, value, type) {
     const n = excelDate(value);
     if (n !== null) return `<c r="${ref}" s="${STYLE.datetime}"><v>${n}</v></c>`;
   }
-  if (['number', 'integer', 'money'].includes(type) && Number.isFinite(Number(value))) {
+  if (['number', 'integer', 'money', 'percent'].includes(type) && Number.isFinite(Number(value))) {
     return `<c r="${ref}" s="${STYLE[type]}"><v>${Number(value)}</v></c>`;
   }
   return `<c r="${ref}" s="${STYLE.text}" t="inlineStr"><is><t xml:space="preserve">${esc(value)}</t></is></c>`;
 }
 
-function sheetXml({ columns, rows, title }) {
+function sheetXml({ columns, rows, title, totals }) {
   const lines = [];
   let r = 1;
   if (title) {
@@ -160,6 +167,19 @@ function sheetXml({ columns, rows, title }) {
     r++;
     lines.push(`<row r="${r}">${columns.map((c, i) => cell(`${colName(i)}${r}`, row[c.key], c.type)).join('')}</row>`);
   }
+  const lastDataRow = r;
+  // Fila de totales opcional: sheet.totals = ['clave1', 'clave2'] → SUMA de esas columnas
+  if (totals?.length && rows.length) {
+    r++;
+    const cells = columns.map((c, i) => {
+      const ref = `${colName(i)}${r}`;
+      if (i === 0) return `<c r="${ref}" s="${STYLE.total}" t="inlineStr"><is><t>Total</t></is></c>`;
+      if (!totals.includes(c.key)) return `<c r="${ref}" s="${STYLE.total}"/>`;
+      const st = c.type === 'money' ? STYLE.totalMoney : STYLE.totalNum;
+      return `<c r="${ref}" s="${st}"><f>SUM(${colName(i)}${headerRow + 1}:${colName(i)}${lastDataRow})</f></c>`;
+    });
+    lines.push(`<row r="${r}">${cells.join('')}</row>`);
+  }
   const lastCol = colName(columns.length - 1);
   const cols = columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.width || 15}" customWidth="1"/>`).join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -168,7 +188,7 @@ function sheetXml({ columns, rows, title }) {
 <sheetFormatPr defaultRowHeight="15"/>
 <cols>${cols}</cols>
 <sheetData>${lines.join('')}</sheetData>
-${rows.length ? `<autoFilter ref="A${headerRow}:${lastCol}${r}"/>` : ''}
+${rows.length ? `<autoFilter ref="A${headerRow}:${lastCol}${lastDataRow}"/>` : ''}
 </worksheet>`;
 }
 
@@ -208,6 +228,7 @@ ${sheets.some((s) => s.rows.length) ? `<definedNames>${sheets
           return `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${esc(names[i])}'!$A$${h}:$${colName(s.columns.length - 1)}$${h + s.rows.length}</definedName>`;
         })
         .join('')}</definedNames>` : ''}
+<calcPr calcId="191029" fullCalcOnLoad="1"/>
 </workbook>`,
     },
     {

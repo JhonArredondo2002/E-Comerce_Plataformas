@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, img } from '../api.js';
+import { api, apiDownload, img } from '../api.js';
 
 /** Carga datos de la API y expone reload. */
 export function useLoad(path, deps = []) {
@@ -98,3 +98,23 @@ export function PageHeader({ title, subtitle, children }) {
 }
 
 export const Badge = ({ tone = 'gray', children }) => <span className={`badge ${tone}`}>{children}</span>;
+
+/** Botón que descarga un archivo de Excel generado por el backend. */
+export function ExportButton({ path, filename, label = 'Exportar a Excel', title }) {
+  const [busy, setBusy] = useState(false);
+  const download = async () => {
+    setBusy(true);
+    try {
+      await apiDownload(path, `${filename}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button type="button" className="btn secondary" onClick={download} disabled={busy} title={title || 'Descarga en Excel la información que ves en pantalla (con los filtros aplicados)'}>
+      {busy ? 'Generando…' : `⬇ ${label}`}
+    </button>
+  );
+}

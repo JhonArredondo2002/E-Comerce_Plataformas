@@ -12,6 +12,7 @@ const BUSINESS_MENU = [
   { to: '/clientes', label: 'Clientes', icon: '☺' },
   { to: '/productos', label: 'Productos', icon: '▤' },
   { to: '/inventario', label: 'Inventario', icon: '⇅' },
+  { to: '/proveedores', label: 'Proveedores', icon: '⇄' },
   { to: '/anuncios', label: 'Anuncios', icon: '✦' },
   { to: '/colaboradores', label: 'Colaboradores', icon: '◎' },
   { to: '/negocio', label: 'Mi negocio', icon: '⌂' },

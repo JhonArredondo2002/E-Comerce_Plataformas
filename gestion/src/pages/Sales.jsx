@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, dateTime, money } from '../api.js';
-import { Badge, Empty, ErrorMsg, Modal, PageHeader, useLoad } from '../components/ui.jsx';
+import { Badge, Empty, ErrorMsg, ExportButton, Modal, PageHeader, useLoad } from '../components/ui.jsx';
 
 export default function Sales() {
   const [from, setFrom] = useState('');
@@ -27,6 +27,7 @@ export default function Sales() {
   return (
     <>
       <PageHeader title="Ventas" subtitle={`${completed.length} ventas · ${money(total)}`}>
+        <ExportButton path={`/sales/export?${qs}`} filename="ventas" title="Descarga las ventas del periodo filtrado: resumen, detalle por producto y ventas por producto" />
         <Link className="btn primary" to="/ventas/nueva">+ Nueva venta</Link>
       </PageHeader>
       <div className="toolbar">

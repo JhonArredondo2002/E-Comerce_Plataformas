@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { api, img, money, toFormData } from '../api.js';
-import { Badge, Empty, ErrorMsg, Field, ImageInput, Modal, PageHeader, useLoad } from '../components/ui.jsx';
+import { Badge, Empty, ErrorMsg, ExportButton, Field, ImageInput, Modal, PageHeader, useLoad } from '../components/ui.jsx';
 
-const EMPTY = { name: '', description: '', sku: '', category: '', price: '', cost: '', stock: '', min_stock: '', in_catalog: true, active: true };
+const EMPTY = { name: '', description: '', sku: '', category: '', price: '', cost: '', stock: '', min_stock: '', supplier_id: '', in_catalog: true, active: true };
 
 export default function Products() {
   const [q, setQ] = useState('');
   const { data, error, reload } = useLoad(`/products?q=${encodeURIComponent(q)}`, [q]);
   const { data: categories } = useLoad('/products/categories');
+  const { data: suppliers } = useLoad('/suppliers');
   const [editing, setEditing] = useState(null);
 
   const remove = async (p) => {
@@ -18,6 +19,7 @@ export default function Products() {
   return (
     <>
       <PageHeader title="Productos" subtitle="Los productos marcados “en catálogo” se muestran en tu tienda pública">
+        <ExportButton path={`/products/export?q=${encodeURIComponent(q)}`} filename="productos" />
         <button className="btn primary" onClick={() => setEditing(EMPTY)}>+ Nuevo producto</button>
       </PageHeader>
       <div className="toolbar">
@@ -29,7 +31,7 @@ export default function Products() {
         <div className="table-wrap">
           <table className="table">
             <thead>
-              <tr><th /><th>Producto</th><th>Categoría</th><th className="num">Precio</th><th className="num">Costo</th><th className="num">Stock</th><th>Estado</th><th /></tr>
+              <tr><th /><th>Producto</th><th>Categoría</th><th>Proveedor</th><th className="num">Precio</th><th className="num">Costo</th><th className="num">Stock</th><th>Estado</th><th /></tr>
             </thead>
             <tbody>
               {data.map((p) => (
@@ -37,6 +39,7 @@ export default function Products() {
                   <td className="thumb-cell">{p.image ? <img className="thumb" src={img(p.image)} alt="" /> : <div className="thumb empty-thumb" />}</td>
                   <td><strong>{p.name}</strong>{p.sku && <div className="muted small">SKU {p.sku}</div>}</td>
                   <td>{p.category}</td>
+                  <td>{p.supplier_name || <span className="muted">—</span>}</td>
                   <td className="num">{money(p.price)}</td>
                   <td className="num">{money(p.cost)}</td>
                   <td className={`num ${p.stock <= p.min_stock ? 'danger-text' : ''}`}>{p.stock}</td>
@@ -58,6 +61,7 @@ export default function Products() {
         <ProductForm
           product={editing}
           categories={categories || []}
+          suppliers={suppliers || []}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); reload(); }}
         />
@@ -66,8 +70,8 @@ export default function Products() {
   );
 }
 
-function ProductForm({ product, categories, onClose, onSaved }) {
-  const [form, setForm] = useState({ ...EMPTY, ...product, in_catalog: !!product.in_catalog, active: !!product.active });
+function ProductForm({ product, categories, suppliers, onClose, onSaved }) {
+  const [form, setForm] = useState({ ...EMPTY, ...product, supplier_id: product.supplier_id ?? '', in_catalog: !!product.in_catalog, active: !!product.active });
   const [file, setFile] = useState(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState('');
@@ -79,8 +83,8 @@ function ProductForm({ product, categories, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { name, description, sku, category, price, cost, min_stock, in_catalog, active, stock } = form;
-      const fd = toFormData({ name, description, sku, category, price, cost, min_stock, in_catalog, active, stock: isNew ? stock : undefined });
+      const { name, description, sku, category, price, cost, min_stock, in_catalog, active, stock, supplier_id } = form;
+      const fd = toFormData({ name, description, sku, category, price, cost, min_stock, in_catalog, active, supplier_id, stock: isNew ? stock : undefined });
       if (file) fd.append('image', file);
       if (removeImage && !file) fd.append('remove_image', '1');
       await api(isNew ? '/products' : `/products/${product.id}`, { method: isNew ? 'POST' : 'PUT', body: fd });
@@ -96,6 +100,12 @@ function ProductForm({ product, categories, onClose, onSaved }) {
         <Field label="Categoría">
           <input list="product-categories" value={form.category} onChange={set('category')} />
           <datalist id="product-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+        </Field>
+        <Field label="Proveedor habitual" hint="Opcional. Se administran en la sección Proveedores">
+          <select value={form.supplier_id} onChange={set('supplier_id')}>
+            <option value="">Sin proveedor</option>
+            {suppliers.filter((x) => x.active || x.id === product.supplier_id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
         </Field>
         <Field label="SKU / Código" hint="Opcional. Código interno o de barras para identificar el producto"><input value={form.sku} onChange={set('sku')} placeholder="Ej: CAF-500 o 7701234567890" /></Field>
         <Field label="Precio de venta"><input type="number" min="0" step="any" value={form.price} onChange={set('price')} /></Field>

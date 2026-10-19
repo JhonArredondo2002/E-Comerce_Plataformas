@@ -81,6 +81,28 @@ for (const d of demo) {
   console.log(`Negocio demo creado: ${d.business.name}`);
 }
 
+// Proveedores de ejemplo (solo si el negocio demo aún no tiene proveedores)
+const demoSuppliers = {
+  'cafe-aroma': [
+    { name: 'Café de Origen Huila S.A.S.', document: '900123456-1', contact_name: 'Marta López', phone: '3105551234', supplies: 'Café en grano y molido', match: 'Café' },
+    { name: 'Lácteos La Pradera', document: '800987654-2', contact_name: 'Jorge Díaz', phone: '3115559876', supplies: 'Leche y derivados', match: 'Capuchino' },
+  ],
+  'tecnofix-medellin': [
+    { name: 'Distribuidora TecnoParts', document: '901555222-3', contact_name: 'Camila Rojas', phone: '3205554433', supplies: 'Cargadores, cables y accesorios', match: '' },
+  ],
+};
+for (const [slug, list] of Object.entries(demoSuppliers)) {
+  const b = db.prepare('SELECT id FROM businesses WHERE slug = ?').get(slug);
+  if (!b || db.prepare('SELECT id FROM suppliers WHERE business_id = ?').get(b.id)) continue;
+  for (const s of list) {
+    const sid = db.prepare('INSERT INTO suppliers (business_id, name, document, contact_name, phone, supplies) VALUES (?,?,?,?,?,?)')
+      .run(b.id, s.name, s.document, s.contact_name, s.phone, s.supplies).lastInsertRowid;
+    db.prepare(`UPDATE products SET supplier_id = ? WHERE business_id = ? AND supplier_id IS NULL AND name LIKE ? AND category != 'Servicios'`)
+      .run(sid, b.id, `%${s.match}%`);
+  }
+  console.log(`Proveedores demo creados para: ${slug}`);
+}
+
 console.log(`
 Usuarios de prueba:
   Superadmin:   super@plataforma.com / super123
